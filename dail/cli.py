@@ -1,0 +1,146 @@
+import time
+import random
+import shutil
+import argparse
+from pathlib import Path
+
+import numpy as np
+import tensorflow as tf
+
+from dail.envs import make_envs, register_reacher_envs
+from dail.utils import create_dataset, create_replay_memory
+from dail.agents import ddpg
+from dail.params import generate_reacher_params
+
+
+def main() -> None:
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    # Reset the session
+    shutil.rmtree(args.logdir, ignore_errors=True)
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    tf.compat.v1.random.set_random_seed(args.seed)
+
+    # Initialize environments
+    register_reacher_envs()
+    env = make_envs(args.expert_domain, args.learner_domain, args.seed)
+    reacher_params = generate_reacher_params(env=env)
+    replay_memory = create_replay_memory(env=env, params=reacher_params)
+    print("Environment:\n", "\n".join(f"  {k}:\t{v}" for k, v in env.items()))
+    print("Using saved parameters:", args.exp_id)
+
+    # Create an agent
+    agent = ddpg.DDPGAgent(
+        params=reacher_params,
+        cmd_args=args,
+        env=env,
+        replay_memory=replay_memory,
+        save_expert_dir=args.save_expert_dir,
+        save_learner_dir=args.save_learner_dir,
+        save_dataset_dir=args.save_dataset_dir,
+        load_expert_dir=args.load_expert_dir,
+        load_learner_dir=args.load_learner_dir,
+        load_dataset_dir=args.load_dataset_dir,
+        logdir=args.logdir,
+        render=args.render,
+        gpu=args.gpu,
+        is_transfer=(args.agent_type == "transfer"),
+    )
+
+    return
+
+    print("----------------------------")
+    if args.agent_type == "expert":
+        print("Training Expert")
+        print(f"Save={args.save_expert_dir}")
+        agent.train_expert(from_ckpt=False)
+
+    elif args.agent_type == "expert_from_ckpt":
+        print("Training Expert from Checkpoint")
+        print(f"Load={args.load_expert_dir}")
+        print(f"Save={args.save_expert_dir}")
+        agent.train_expert(from_ckpt=True)
+
+    elif args.agent_type == "create_alignment_taskset":
+        print("Creating Alignment Taskset with")
+        print(f"Expert={args.load_expert_dir}")
+        print(f"Self={args.load_learner_dir}")
+        agent.create_alignment_taskset()
+
+    elif args.agent_type == "gama":
+        print("GAMA with")
+        print(f"Expert={args.load_expert_dir}")
+        print(f"Self={args.save_learner_dir}")
+        agent.gama(from_ckpt=False)
+
+    elif args.agent_type == "zeroshot":
+        print("Zeroshot Evaluation")
+        print(f"Expert={args.load_expert_dir}")
+        print(f"Self={args.load_learner_dir}")
+        agent.zeroshot()
+
+    elif args.agent_type == "rollout_expert":
+        print(f"Rollout expert({args.load_expert_dir})")
+        agent.rollout_expert()
+
+    elif args.agent_type == "create_demo":
+        print(f"Create demonstrations dataset and save ({args.save_dataset_dir})")
+        agent.create_demonstrations(num_demo=args.n_demo)
+
+    elif args.agent_type == "bc":
+        print("Behavioral Cloning on Target Expert")
+        print(f"Dataset={args.load_dataset_dir}")
+        print(f"Save={args.save_expert_dir}")
+        agent.bc(num_demo=args.n_demo)
+
+    elif args.agent_type == "bc_from_ckpt":
+        print("Behavioral Cloning on Target Expert from Checkpoint")
+        print(f"Dataset={args.load_dataset_dir}")
+        print(f"Load={args.load_expert_dir}")
+        print(f"Save={args.save_expert_dir}")
+        agent.bc(from_ckpt=True)
+
+    else:
+        print("Unrecognized experiment type")
+        exit(1)
+    print("----------------------------")
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="dail",
+        description="Domain Adaptive Imitation Learning",
+    )
+
+    current_dir = Path.cwd()
+    default_log_dir = current_dir / "logs" / "temp"
+
+    parser.add_argument("--logdir", default=default_log_dir, type=Path)
+
+    parser.add_argument("--load_expert_dir", default="./saved_expert/temp", type=str)
+    parser.add_argument("--load_learner_dir", default="./saved_learner/temp", type=str)
+    parser.add_argument("--load_dataset_dir", default="./temp/empty.pickle", type=str)
+
+    parser.add_argument("--save_expert_dir", default="./saved_expert/temp", type=str)
+    parser.add_argument("--save_learner_dir", default="./saved_learner/temp", type=str)
+    parser.add_argument("--save_dataset_dir", default="./temp/temp.pickle", type=str)
+
+    parser.add_argument("--expert_dataset_dir", default="./saved_dataset/temp", type=str)
+    parser.add_argument("--learner_dataset_dir", default="./saved_dataset/temp", type=str)
+
+    parser.add_argument("--expert_domain", required=True, type=str)
+    parser.add_argument("--learner_domain", required=True, type=str)
+    parser.add_argument("--seed", default=0, type=int)
+
+    parser.add_argument("--exp_id", default="reacher", type=str)
+    parser.add_argument("--doc", default="", type=str)
+    parser.add_argument("--gpu", default=-1, type=int)
+    parser.add_argument("--render", default=1, type=int)
+    parser.add_argument("--agent_type", type=str, required=True)
+    parser.add_argument("--algo", type=str, required=True)
+    parser.add_argument("--n_demo", type=int, default=0)
+
+    return parser

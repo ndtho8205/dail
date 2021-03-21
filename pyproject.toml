@@ -1,0 +1,82 @@
+[tool.poetry]
+name = "dail"
+version = "0.1.0"
+description = ""
+authors = ["Tho Nguyen <ndtho8205@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.7,<3.10"
+numpy = "<1.20.0"
+tensorflow = "1.15.5"
+mujoco-py = "0.5.7"
+gym = "0.7.4"
+num2words = "^0.5.10"
+imageio = "^2.9.0"
+imageio-ffmpeg = "^0.4.3"
+tqdm = "^4.60.0"
+matplotlib = "^3.4.2"
+
+[tool.poetry.dev-dependencies]
+PyQt5 = "^5.15.4"
+pylint = "^2.8.2"
+darglint = "^1.8.0"
+isort = "^5.8.0"
+mypy = "^0.812"
+black = "^21.5b0"
+pre-commit = "^2.12.1"
+pytest = "^6.2.4"
+pytest-cov = "^2.11.1"
+pytest-mock = "^3.6.1"
+pytest-randomly = "^3.7.0"
+flake8 = "^3.9.1"
+flake8-docstrings = "^1.6.0"
+flake8-rst-docstrings = "^0.2.3"
+flake8-commas = "^2.0.0"
+flake8-comprehensions = "^3.4.0"
+flake8-bugbear = "^21.4.3"
+flake8-eradicate = "^1.0.0"
+flake8-bandit = "^2.1.2"
+flake8-pytest-style = "^1.4.1"
+pyupgrade = "^2.14.0"
+safety = "^1.10.3"
+jupyterlab = "^3.0.15"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+dail = "dail:run_main"
+
+[tool.isort]
+profile = "black"
+length_sort = true
+sections = "FUTURE,TYPING,STDLIB,TEST,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
+known_typing = "typing,types,typing_extensions,mypy,mypy_extensions"
+known_test = "pytest,pytest_mock"
+known_firstparty = "dail"
+
+[tool.black]
+line-length = 90
+target-version = ["py37"]
+
+[tool.pylint.MASTER]
+jobs = 1
+extension-pkg-whitelist = ""
+
+[tool.pylint.BASIC]
+module-naming-style = "any"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+  "missing-module-docstring",
+  "missing-function-docstring",
+  "too-few-public-methods",
+]
+
+[tool.pylint."SIMILARITIES"]
+min-similarity-lines = 4
+ignore-imports = "yes"
+
+[tool.pylint.DESIGN]
+max-args = 10
