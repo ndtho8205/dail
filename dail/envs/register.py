@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Dict, Union, Optional
 
 from gym.envs import register as register_gym_env
 from gym.envs import registry
@@ -114,6 +114,7 @@ def register_reacher() -> None:
 
 
 def register_adroit() -> None:
+    # pylint: disable=import-outside-toplevel
     from .adroit import infos
 
     # V1 envs
@@ -141,12 +142,24 @@ def register_adroit() -> None:
                 env_id=env_name,
                 entry_point="dail.envs.adroit:" + env_mapping[env],
                 max_episode_steps=max_steps[env],
-                dataset_url=infos["dataset_urls"][env_name],
-                ref_min_score=infos["ref_min_score"][env_name],
-                ref_max_score=infos["ref_max_score"][env_name],
+                kwargs={
+                    "dataset_url": infos["dataset_urls"][env_name],
+                    "ref_min_score": infos["ref_min_score"][env_name],
+                    "ref_max_score": infos["ref_max_score"][env_name],
+                },
             )
 
 
-def _register(env_id: str, **kwargs: Union[str, float, int]) -> None:
+def _register(
+    env_id: str,
+    entry_point: str,
+    max_episode_steps: int,
+    kwargs: Optional[Dict[str, Union[str, float, int]]] = None,
+) -> None:
     if env_id not in registry.env_specs.keys():
-        register_gym_env(id=env_id, **kwargs)
+        register_gym_env(
+            id=env_id,
+            entry_point=entry_point,
+            max_episode_steps=max_episode_steps,
+            kwargs=kwargs,
+        )
