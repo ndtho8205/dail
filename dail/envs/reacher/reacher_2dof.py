@@ -1,41 +1,31 @@
 import os
-import pdb
 import random
 
 import numpy as np
 import mujoco_py
 from gym import utils
 from gym.envs.mujoco import mujoco_env
-from mujoco_py.mjlib import mjlib
 
 
-class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class Reacher2DOFEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
-        self.reset_called = False
         utils.EzPickle.__init__(self)
         mujoco_env.MujocoEnv.__init__(
             self,
-            os.path.dirname(os.path.abspath(__file__)) + "/assets/reacher_2dof_push.xml",
+            os.path.dirname(os.path.abspath(__file__)) + "/assets/reacher_2dof.xml",
             2,
         )
         self.viewer = None
 
     def _step(self, a):
-        vec = self.get_body_com("target") - self.get_body_com("destination")
-
+        vec = self.get_body_com("fingertip") - self.get_body_com("target")
         reward_dist = -np.linalg.norm(vec)
-        reward_ctrl = -np.abs(a).sum()
-        a = np.clip(a, -0.002, 0.002)
-
-        proximity_threshold = 0.05
-        reward = reward_dist + 100 * int(-reward_dist < proximity_threshold)
-        reward = reward * 0.25
-
+        reward_ctrl = -np.square(a).sum()
+        reward = reward_dist + reward_ctrl
         self.do_simulation(a, self.frame_skip)
         ob = self._get_obs()
 
-        done = (-reward_dist < proximity_threshold) and self.reset_called
-
+        done = False
         """
         if np.linalg.norm(vec) < 0.02:
             done = True
@@ -50,13 +40,12 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.viewer.cam.azimuth = 0
 
     def reset_model(self):
-        self.reset_called = True
-        n_joints = 2
+        n_joints = self.model.nq - 2
         max_reachable_len = (n_joints + 1) * 0.1  # .1 is the length of each link
         min_reachable_len = 0.1  # joint ranges: inf, .9, 2.8
 
-        bias_low = 0.8
-        bias_high = 0.9
+        bias_low = -3.14
+        bias_high = 3.14
         bias2_low = -2.8
         bias2_high = 2.8
         first_bias = self.np_random.uniform(low=bias_low, high=bias_high, size=1)
@@ -154,11 +143,6 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             det_wall_corner_options = det_wall_options + det_corner_options
 
             ## Goal selection
-
-            # one goal
-            chosen_goal = det_wall_options[5]
-            print("training with 1 box location")
-
             # 12 goals
             #            chosen_goal = det_wall_options[random.randrange(len(det_wall_options))]
             #            print("training with 12 wall goals")
@@ -189,8 +173,8 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             # chosen_goal = det_wall_1[random.randrange(len(det_wall_1))]
             # print("training with 1 wall goal")
 
-            self.goal = np.array(chosen_goal)
-            #            print("training with div goals")
+            #            self.goal = np.array(chosen_goal)
+            print("training with div goals")
 
             if (
                 np.linalg.norm(self.goal) < max_reachable_len
@@ -199,16 +183,15 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                 break
 
         qpos[-2:] = self.goal
-        qpos[-4:-2] = self.goal + np.array([0.2, 0.2])
         qvel = self.init_qvel + self.np_random.uniform(
             low=-0.005, high=0.005, size=self.model.nv
         )
-        qvel[-4:] = 0
+        qvel[-2:] = 0
         self.set_state(qpos, qvel)
         return self._get_obs()
 
     def _get_obs(self):
-        n_joints = 2
+        n_joints = self.model.nq - 2
 
         theta = self.model.data.qpos.flat[:n_joints]
 
@@ -216,16 +199,14 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             [
                 np.cos(theta),
                 np.sin(theta),
-                np.array([0.0, 0.0]),
-                #            self.model.data.qpos.flat[n_joints:n_joints+2], # box position
+                self.model.data.qpos.flat[n_joints:],  # target position
                 self.model.data.qvel.flat[:n_joints],  # joint velocities
             ]
         )
-
         # self.get_body_com("fingertip") - self.get_body_com("target")
 
     def set_state_from_obs(self, obs):
-        n_joints = 2
+        n_joints = self.model.nq - 2
         qvel = np.zeros((self.model.nv,))
 
         # Positions
@@ -234,7 +215,7 @@ class Reacher2DOFPushEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         theta = np.arctan2(sin_theta, cos_theta)  # 3
         target = obs[2 * n_joints : 2 * n_joints + 2]  # 2
 
-        qpos = np.concatenate([theta, target, self.goal], axis=0)
+        qpos = np.concatenate([theta, target], axis=0)
         qvel[:n_joints] = obs[2 * n_joints + 2 : 2 * n_joints + 2 + n_joints]  # 5
 
         self.set_state(qpos, qvel)

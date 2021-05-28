@@ -16,7 +16,7 @@ class DomainEnv:
     action_dim: int
 
 
-_ENVS = {
+ENVS = {
     # Unmodified gym environments
     "reacher2": ("Reacher2DOF-v0", "goal"),
     "reacher2_wall": ("Reacher2DOFWall-v0", "goal"),
@@ -41,14 +41,27 @@ _ENVS = {
     "reacher4": ("Reacher4DOF-v0", "goal"),
     "reacher5": ("Reacher5DOF-v0", "goal"),
     "reacher6": ("Reacher6DOF-v0", "goal"),
+    # Adroit
+    "pen-human-v1": ("pen-human-v1", "goal"),
+    "pen-cloned-v1": ("pen-cloned-v1", "goal"),
+    "pen-expert-v1": ("pen-expert-v1", "goal"),
+    "door-human-v1": ("door-human-v1", "goal"),
+    "door-cloned-v1": ("door-cloned-v1", "goal"),
+    "door-expert-v1": ("door-expert-v1", "goal"),
+    "hammer-human-v1": ("hammer-human-v1", "goal"),
+    "hammer-cloned-v1": ("hammer-cloned-v1", "goal"),
+    "hammer-expert-v1": ("hammer-expert-v1", "goal"),
+    "relocate-human-v1": ("relocate-human-v1", "goal"),
+    "relocate-cloned-v1": ("relocate-cloned-v1", "goal"),
+    "relocate-expert-v1": ("relocate-expert-v1", "goal"),
 }
 
 
 def make_env(env_name: str, seed: int) -> DomainEnv:
-    if env_name not in _ENVS:
+    if env_name not in ENVS:
         raise ValueError(f"Failed to recognize environment: {env_name}.")
 
-    (env_id, env_type) = _ENVS[env_name]
+    (env_id, env_type) = ENVS[env_name]
     env = gym.make(env_id)
 
     # Seed the chosen env

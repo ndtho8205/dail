@@ -6,7 +6,7 @@ from dail.utils.replay_memory import ReplayMemory
 
 
 def create_replay_memory(
-    env: Dict[str, DomainEnv],
+    envs: Dict[str, DomainEnv],
     params: SavedParameters,
 ) -> Dict[str, ReplayMemory]:
     """Creates separate replay memories for each domain."""
@@ -22,7 +22,7 @@ def create_replay_memory(
             ),
         )
 
-    for domain in env.keys():
+    for domain in envs.keys():
         replay_memory[domain] = ReplayMemory(capacity=memory_capacity)
     replay_memory["model"] = ReplayMemory(capacity=memory_capacity)
 

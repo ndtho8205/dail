@@ -1,8 +1,11 @@
+from typing import Any, Dict
+
 import time
 import random
 import shelve
 import signal
 from time import sleep
+from signal import Signals
 from pathlib import Path
 from threading import Lock
 
@@ -14,47 +17,51 @@ import tensorflow as tf
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
-from dail.utils import *
-from dail.compgraph import build_compgraph
+from dail.envs import DomainEnv
+from dail.utils import ReplayMemory, render_policy
+from dail.params import SavedParameters
+from dail.agents.graphs import build_compgraph
 
 
 class GracefulKiller:
     """Gracefully exit program on CTRL-C."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.kill_now = False
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
-    def exit_gracefully(self, signum, frame):
+    def exit_gracefully(self, _signalnum: Signals, _handler: Any) -> None:
         self.kill_now = True
 
 
 class DDPGAgent:
     def __init__(
         self,
-        params,
+        envs: Dict[str, DomainEnv],
+        params: SavedParameters,
+        replay_memory: Dict[str, ReplayMemory],
+        logdir: Path,
+        # TODO: Check the below args
         cmd_args,
-        env,
-        replay_memory,
         save_expert_dir,
         save_learner_dir,
         save_dataset_dir,
         load_expert_dir,
         load_learner_dir,
         load_dataset_dir,
-        logdir,
         render,
         gpu,
         is_transfer,
     ):
 
         # Agent attributes
+        self.envs = envs
         self.params = params
-        self.args = cmd_args
-        self.env = env
         self.replay_memory = replay_memory
+        self.logdir = logdir
 
+        self.args = cmd_args
         # Graph attributes
         self.render = render
         self.save_expert_dir = save_expert_dir
@@ -63,7 +70,6 @@ class DDPGAgent:
         self.load_expert_dir = load_expert_dir
         self.load_learner_dir = load_learner_dir
         self.load_dataset_dir = load_dataset_dir
-        self.logdir = logdir
         self.render = render
         self.gpu = gpu
 
@@ -79,7 +85,9 @@ class DDPGAgent:
             self.expert_save_vars,
             self.learner_save_vars,
         ) = build_compgraph(
-            params=self.params, env=self.env, algo="ddpg", is_transfer=is_transfer
+            envs=self.envs,
+            params=self.params,
+            is_transfer=is_transfer,
         )
 
         # Session and saver
@@ -115,7 +123,7 @@ class DDPGAgent:
                         self.sess,
                         self.graph,
                         self.ph,
-                        self.env,
+                        self.envs,
                         "expert",
                         num_rollout=1,
                         save_video=True,
@@ -162,8 +170,8 @@ class DDPGAgent:
             if kill_option == "y":
                 self.sess.close()
                 self.writer.close()
-                for d_ in self.env.keys():
-                    self.env[d_]["env"].close()
+                for d_ in self.envs.keys():
+                    self.envs[d_]["env"].close()
 
                 exit(1)
             else:
@@ -199,10 +207,10 @@ class DDPGAgent:
                         readouts[d_][k_] = 0
 
             # Initialize exploration noise process
-            noise_process = np.zeros(self.env[d_]["action_dim"])
+            noise_process = np.zeros(self.envs[d_]["action_dim"])
             action_range = (
-                self.env[d_]["env"].action_space.high
-                - self.env[d_]["env"].action_space.low
+                self.envs[d_]["env"].action_space.high
+                - self.envs[d_]["env"].action_space.low
             )
             noise_scale = (
                 self.params["train"]["initial_noise_scale"]
@@ -211,7 +219,7 @@ class DDPGAgent:
             )
 
             # Reset environment
-            obs = self.env[d_]["env"].reset()
+            obs = self.envs[d_]["env"].reset()
 
             for t in range(self.params["train"]["max_steps_ep"]):
 
@@ -228,12 +236,14 @@ class DDPGAgent:
                 noise_process = self.params["train"]["exploration_theta"] * (
                     self.params["train"]["exploration_mu"] - noise_process
                 ) + self.params["train"]["exploration_sigma"] * np.random.randn(
-                    self.env[d_]["action_dim"]
+                    self.envs[d_]["action_dim"]
                 )
                 action_for_state = raw_action + noise_scale * noise_process
 
                 # Take step
-                next_obs, reward, done, _info = self.env[d_]["env"].step(action_for_state)
+                next_obs, reward, done, _info = self.envs[d_]["env"].step(
+                    action_for_state
+                )
                 readouts[d_]["total_reward"] += reward
 
                 # is next_obs a terminal state?
@@ -370,7 +380,7 @@ class DDPGAgent:
             self.sess,
             self.graph,
             self.ph,
-            self.env,
+            self.envs,
             self.save_dataset_dir,
             num_transitions=int(1e5),
             save_video=False,
@@ -379,8 +389,8 @@ class DDPGAgent:
         # Close environments
         self.sess.close()
         self.writer.close()
-        for d_ in self.env.keys():
-            self.env[d_]["env"].close()
+        for d_ in self.envs.keys():
+            self.envs[d_]["env"].close()
 
         return
 
@@ -666,8 +676,8 @@ class DDPGAgent:
         # Close environments
         self.sess.close()
         self.writer.close()
-        for d_ in self.env.keys():
-            self.env[d_]["env"].close()
+        for d_ in self.envs.keys():
+            self.envs[d_]["env"].close()
 
         return
 
@@ -720,7 +730,7 @@ class DDPGAgent:
                 self.sess,
                 self.graph,
                 self.ph,
-                self.env,
+                self.envs,
                 "expert",
                 num_rollout=50,
                 save_video=False,
@@ -734,7 +744,7 @@ class DDPGAgent:
                         self.sess,
                         self.graph,
                         self.ph,
-                        self.env,
+                        self.envs,
                         "expert",
                         num_rollout=20,
                         save_video=True,
@@ -750,8 +760,8 @@ class DDPGAgent:
                 if kill_option == "y":
                     self.sess.close()
                     self.writer.close()
-                    for d_ in self.env.keys():
-                        self.env[d_]["env"].close()
+                    for d_ in self.envs.keys():
+                        self.envs[d_]["env"].close()
 
                     break
                 else:
@@ -763,7 +773,7 @@ class DDPGAgent:
                         self.sess,
                         self.graph,
                         self.ph,
-                        self.env,
+                        self.envs,
                         "expert",
                         num_rollout=20,
                         save_video=True,
@@ -779,8 +789,8 @@ class DDPGAgent:
                 if kill_option == "y":
                     self.sess.close()
                     self.writer.close()
-                    for d_ in self.env.keys():
-                        self.env[d_]["env"].close()
+                    for d_ in self.envs.keys():
+                        self.envs[d_]["env"].close()
 
                     break
                 else:
@@ -808,7 +818,7 @@ class DDPGAgent:
             self.sess,
             self.graph,
             self.ph,
-            self.env,
+            self.envs,
             save_dir=self.save_dataset_dir,
             num_rollout=num_demo,
             save_video=False,
@@ -818,8 +828,8 @@ class DDPGAgent:
         # Close environments
         self.sess.close()
         self.writer.close()
-        for d_ in self.env.keys():
-            self.env[d_]["env"].close()
+        for d_ in self.envs.keys():
+            self.envs[d_]["env"].close()
 
         return
 
@@ -838,7 +848,7 @@ class DDPGAgent:
             self.sess,
             self.graph,
             self.ph,
-            self.env,
+            self.envs,
             "expert",
             num_rollout=50,
             save_video=False,
@@ -848,8 +858,8 @@ class DDPGAgent:
         # Close environments
         self.sess.close()
         self.writer.close()
-        for d_ in self.env.keys():
-            self.env[d_]["env"].close()
+        for d_ in self.envs.keys():
+            self.envs[d_]["env"].close()
         return
 
     def render_statemap(
@@ -863,8 +873,8 @@ class DDPGAgent:
 
         for idx in range(num_rollout):
             done = False
-            obs = self.env["learner"]["env"].reset()
-            self.env["expert"]["env"].reset()
+            obs = self.envs["learner"]["env"].reset()
+            self.envs["expert"]["env"].reset()
             ep_reward = 0
             while not done:
                 mapped_state_raw, trans_act, act = self.sess.run(
@@ -882,23 +892,25 @@ class DDPGAgent:
                 act = act[0]
                 mapped_state_raw = mapped_state_raw[0]
 
-                self.env["expert"]["env"].env.set_state_from_obs(mapped_state_raw)
+                self.envs["expert"]["env"].env.set_state_from_obs(mapped_state_raw)
                 #                self.env['expert']['env'].set_state_from_obs(mapped_state_raw)
 
                 # Render
                 if save_video:
                     # Concatenate learner and expert images
-                    limg = self.env["learner"]["env"].render(
+                    limg = self.envs["learner"]["env"].render(
                         mode="rgb_array", close=False
                     )
-                    eimg = self.env["expert"]["env"].render(mode="rgb_array", close=False)
+                    eimg = self.envs["expert"]["env"].render(
+                        mode="rgb_array", close=False
+                    )
                     print(f"{limg.shape}, {eimg.shape}")
                     if limg.shape[0] == eimg.shape[0] and limg.shape[1] == eimg.shape[1]:
                         img = np.concatenate([limg, eimg], axis=1)
                         frames.append(img)
 
                 # Step
-                next_obs, reward, done, info = self.env["learner"]["env"].step(act)
+                next_obs, reward, done, info = self.envs["learner"]["env"].step(act)
                 #                                print(np.around(trans_act, 4))
 
                 obs = next_obs
@@ -925,18 +937,18 @@ class DDPGAgent:
         d_ = domain
 
         # Reacher specific
-        if "reacher2" in self.env[d_]["name"]:
+        if "reacher2" in self.envs[d_]["name"]:
             njoints = 2
-        elif "reacher3" in self.env[d_]["name"]:
+        elif "reacher3" in self.envs[d_]["name"]:
             njoints = 3
         else:
             print(
-                "[ddpg.py] ERROR: unrecognized env name {}".format(self.env[d_]["name"])
+                "[ddpg.py] ERROR: unrecognized env name {}".format(self.envs[d_]["name"])
             )
             exit(1)
 
         for idx in range(num_rollout):
-            obs = self.env[d_]["env"].reset()
+            obs = self.envs[d_]["env"].reset()
             ep_step = 0
             while ep_step < 60:
                 act = self.sess.run(
@@ -950,9 +962,9 @@ class DDPGAgent:
                 act = act[0]
 
                 # Render
-                self.env[d_]["env"].env.set_state_from_obs(obs)
+                self.envs[d_]["env"].env.set_state_from_obs(obs)
                 if save_video:
-                    img = self.env[d_]["env"].render(mode="rgb_array")
+                    img = self.envs[d_]["env"].render(mode="rgb_array")
                     frames.append(img)
 
                 # Step with dynamics model

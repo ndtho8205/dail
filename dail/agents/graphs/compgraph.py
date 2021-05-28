@@ -1,10 +1,51 @@
+from typing import Dict
+
 import numpy as np
 import tensorflow as tf
 
-from dail.model import feedforward, scale_state, scale_action
+from dail.envs import DomainEnv
+from dail.params import SavedParameters
+
+from .model import feedforward, scale_state, scale_action
 
 # DDPG graph imports
-from dail.graphs.ddpg.ddpg_graph_with_goal import *
+from .ddpg.ddpg_graph_with_goal import *
+
+
+def build_compgraph(
+    envs: Dict[str, DomainEnv],
+    params: SavedParameters,
+    is_transfer: bool = False,
+):
+    """
+    Builds computation graph and defines the train_ops.
+
+    Returns:
+        ph: placeholders : tf.placeholders
+        targets : targets to fetch during sess.run() call : dict
+    """
+    env_types = []
+    for _, domain_env in envs.items():
+        env_types.append(domain_env.env_type)
+    assert len(set(env_types)) == 1
+    env_type = env_types[0]
+
+    # Placeholder dict
+    ph = get_ddpg_ph(envs=envs)
+
+    if env_type == "goal":
+        graph = ddpg_graph_with_goal(env, ph, params)
+        graph_vars, expert_save_vars, learner_save_vars = get_ddpg_with_goal_vars(env=env)
+        targets = get_ddpg_with_goal_targets(
+            env=env, ph=ph, graph=graph, var_dict=graph_vars, params=params
+        )
+
+    else:
+        print(f"[compgraph.py] Unrecognized env type: {env_type}")
+        exit(1)
+
+    # Return the placeholders and targets for sess.run() calls
+    return ph, graph, targets, expert_save_vars, learner_save_vars
 
 
 def get_ddpg_ph(env):
@@ -64,38 +105,3 @@ def get_ddpg_ph(env):
         )  # for stabilizing gan training
 
     return ph
-
-
-def build_compgraph(params, env, algo, is_transfer=False):
-    """
-    Builds computation graph and defines the train_ops
-    Args:
-        params: parameters dictionary : dict
-        env : environments for expert and learner : dict
-    Returns:
-        ph: placeholders : tf.placeholders
-        targets : targets to fetch during sess.run() call : dict
-    """
-
-    env_types = []
-    for k_, v_ in env.items():
-        env_types.append(v_["type"])
-    assert len(set(env_types)) == 1
-    env_type = env_types[0]
-
-    # Placeholder dict
-    ph = get_ddpg_ph(env=env)
-
-    if env_type == "goal":
-        graph = ddpg_graph_with_goal(env, ph, params)
-        graph_vars, expert_save_vars, learner_save_vars = get_ddpg_with_goal_vars(env=env)
-        targets = get_ddpg_with_goal_targets(
-            env=env, ph=ph, graph=graph, var_dict=graph_vars, params=params
-        )
-
-    else:
-        print(f"[compgraph.py] Unrecognized env type: {env_type}")
-        exit(1)
-
-    # Return the placeholders and targets for sess.run() calls
-    return ph, graph, targets, expert_save_vars, learner_save_vars

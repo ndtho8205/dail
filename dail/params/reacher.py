@@ -17,7 +17,7 @@ class SavedParameters:
     behavior_cloning: Parameters
 
 
-def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
+def generate(envs: Dict[str, DomainEnv]) -> SavedParameters:
     """Generates reacher experiment parameters."""
     train_params = {
         "use_inclusive_graph": True,
@@ -91,7 +91,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "actor": {
             "lr": actlr_expert,
             "lr_decay": lr_decay,
-            "num_hidden": [300, 200] + [env["expert"].action_dim],
+            "num_hidden": [300, 200] + [envs["expert"].action_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": [None] * 3,
@@ -118,7 +118,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "actionmap": {
             "lr": actionlr,
             "lr_decay": 1.0,
-            "num_hidden": [h] * 2 + [env["expert"].action_dim],
+            "num_hidden": [h] * 2 + [envs["expert"].action_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": [None] * 3,
@@ -136,7 +136,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "model": {
             "lr": modellr,
             "lr_decay": lr_decay,
-            "num_hidden": [h] * 3 + [env["expert"].state_dim - goal_dim],
+            "num_hidden": [h] * 3 + [envs["expert"].state_dim - goal_dim],
             "activation": [act] * 3 + [None],
             "init": [init] * 4,
             "regularizer": [None] * 4,
@@ -159,7 +159,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "actor": {
             "lr": actlr_learner,
             "lr_decay": lr_decay,
-            "num_hidden": [300, 200] + [env["learner"].action_dim],
+            "num_hidden": [300, 200] + [envs["learner"].action_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": [None] * 3,
@@ -177,7 +177,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "statemap": {
             "lr": statelr,
             "lr_decay": 1.0,
-            "num_hidden": [200] * 2 + [env["expert"].state_dim - goal_dim],
+            "num_hidden": [200] * 2 + [envs["expert"].state_dim - goal_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": ["l2"] * 3,
@@ -186,7 +186,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "invmap": {
             "lr": autolr,
             "lr_decay": 1.0,
-            "num_hidden": [200] * 2 + [env["learner"].state_dim - goal_dim],
+            "num_hidden": [200] * 2 + [envs["learner"].state_dim - goal_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": ["l2"] * 3,
@@ -195,7 +195,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "actionmap": {
             "lr": actionlr,
             "lr_decay": 1.0,
-            "num_hidden": [200] * 2 + [env["learner"].action_dim],
+            "num_hidden": [200] * 2 + [envs["learner"].action_dim],
             "activation": [act] * 2 + [None],
             "init": [init] * 3,
             "regularizer": ["l2"] * 3,
@@ -213,7 +213,7 @@ def generate(env: Dict[str, DomainEnv]) -> SavedParameters:
         "model": {
             "lr": modellr,
             "lr_decay": lr_decay,
-            "num_hidden": [64] * 3 + [env["learner"].state_dim - goal_dim],
+            "num_hidden": [64] * 3 + [envs["learner"].state_dim - goal_dim],
             "activation": [act] * 3 + [None],
             "init": [init] * 4,
             "regularizer": [None] * 4,

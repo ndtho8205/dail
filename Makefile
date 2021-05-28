@@ -6,7 +6,7 @@ VERSION = $(shell make --no-print-directory version)
 COLOR=\033[0;32m
 NC=\033[0m
 
-OBJECTS := $$(find . -type f \( -name *.py -not -path "./dail/envs/reacher/mujoco/*" -not -path "./dail/environments/*" \))
+OBJECTS := $$(find . -type f \( -name *.py -not -path "./dail/envs/reacher/*" -not -path "./dail/envs/adroit/*" -not -path "./dail/environments/*" \))
 
 ###### Development
 

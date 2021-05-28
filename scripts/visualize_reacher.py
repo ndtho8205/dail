@@ -4,7 +4,7 @@ import time
 
 import gym
 
-from dail.envs import register_reacher_envs
+from dail.envs import register_reacher
 
 # Environments
 #   Reacher2DOF-v0
@@ -33,7 +33,7 @@ from dail.envs import register_reacher_envs
 
 
 def main() -> None:
-    register_reacher_envs()
+    register_reacher()
 
     env_name = "Reacher3DOFPush-v0"
     env = gym.make(env_name)

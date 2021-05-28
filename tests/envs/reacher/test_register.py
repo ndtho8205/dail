@@ -1,4 +1,5 @@
 from gym.envs import registry
+
 from dail.envs import register_reacher_envs
 
 

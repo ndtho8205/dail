@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from dail.model import *
+from ..model import *
 
 # GOAL_SCALE = EXP_NJOINTS/LEA_NJOINTS
 GOAL_SCALE = 1.0

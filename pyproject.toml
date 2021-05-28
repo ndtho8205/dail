@@ -7,14 +7,21 @@ authors = ["Tho Nguyen <ndtho8205@gmail.com>"]
 [tool.poetry.dependencies]
 python = ">=3.7,<3.10"
 numpy = "<1.20.0"
+matplotlib = "^3.4.2"
+# reacher
 tensorflow = "1.15.5"
 mujoco-py = "0.5.7"
 gym = "0.7.4"
 num2words = "^0.5.10"
 imageio = "^2.9.0"
-imageio-ffmpeg = "^0.4.3"
-tqdm = "^4.60.0"
-matplotlib = "^3.4.2"
+imageio-ffmpeg = "^0.4.4"
+tqdm = "^4.61.0"
+# adroit
+#gym = "0.13.1"
+#mujoco-py = ">=1.50.1,<1.50.2"
+#h5py = "<3.2.0"
+#torch = "^1.8.1"
+mjrl = {git = "https://github.com/aravindr93/mjrl.git", rev = "master"}
 
 [tool.poetry.dev-dependencies]
 PyQt5 = "^5.15.4"
@@ -40,6 +47,7 @@ flake8-pytest-style = "^1.4.1"
 pyupgrade = "^2.14.0"
 safety = "^1.10.3"
 jupyterlab = "^3.0.15"
+ipython = "^7.23.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
